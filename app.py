@@ -21,12 +21,15 @@ def create_conn(db_file):
 
     return None
 
-@app.route("/", methods = ["GET", "Post"])
+
+@app.route("/", methods=["GET", "POST"])
 def render_index():
     if request.method == "POST" and is_logged_in():
-
-
-
+        cat_name = request.form["cat_name"].strip().title()
+        if len(cat_name) < 3:
+            return redirect("/?error=Name+must+be+at+least+3+letters+long")
+        else:
+            # connect to db
 
 
 
