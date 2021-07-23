@@ -28,33 +28,37 @@ def render_index():
     return render_template("index.html", logged_in=is_logged_in())
 
 # render the categories page
-@app.route("/categories", methods=["GET", "POST"])
+@app.route("/categories/", methods=["GET", "POST"])
 def render_cat_page():
+    # TABLE
+    # get list of categories from db
+    conn = create_conn(DB_NAME)
+    cur = conn.cursor()
+    cur.execute("SELECT cat_key, cat_name FROM categories ORDER BY cat_key ASC") # query for list of cats
+    cat_list = cur.fetchall() # list of all cats
+
+    conn.commit()
+    conn.close()
+
+    # FORM
     # if the form on the page wants to return data
     if request.method == "POST": #and is_logged_in(): # remove comment once login done
         cat_name = request.form["cat_name"].strip().title()
         if len(cat_name) < 3:
             return redirect("/?error=Name+must+be+at+least+3+letters+long")
         else:
-            print("Adding Category " + cat_name)
-            # connect to db
             conn = create_conn(DB_NAME)
-
-            # define query
-            query = "INSERT INTO categories (cat_key, cat_name) VALUES(NULL, ?)"
             cur = conn.cursor()
-
-            # execute query
+            # try to add to categories table
             try:
-                cur.execute(query, (cat_name,))
-                print("Added Category " + cat_name)
+                cur.execute("INSERT INTO categories (cat_key, cat_name) VALUES(NULL, ?)", (cat_name,)) # insert cat_name into categories in next available position
             except:
                 return redirect("/?error=Unknown+error")
 
             conn.commit()
             conn.close()
 
-    return render_template("categories.html", logged_in=True) # change to logged_in = is_logged_in() once login done
+    return render_template("categories.html", logged_in=True, categories=cat_list) # change to logged_in = is_logged_in() once login done
 
 
 
