@@ -58,12 +58,12 @@ def render_categories_page():
 
     return render_template("categories.html", logged_in=True, cat_list=cat_list) # change to logged_in = is_logged_in() once login done
 
-# render the categories page
+# render the words page
 @app.route("/words/<current_cat>", methods=["GET", "POST"])
 def render_words_page(current_cat):
     # WORD TABLE
 
-    # DB FETCH
+    # DB FETCH DICTIONARY
     # initiate db connection
     conn = create_conn(DB_NAME)
     cur = conn.cursor()
@@ -103,6 +103,17 @@ def render_words_page(current_cat):
 
         web_word_list.append(web_word) # add the word to the list of words
 
+    # DB FETCH CAT NAME
+    # initiate db connection
+    conn = create_conn(DB_NAME)
+    cur = conn.cursor()
+    # fetch data
+    cur.execute("SELECT cat_key, cat_name FROM categories WHERE cat_key=? ORDER BY cat_key ASC LIMIT 1", (current_cat,))  # query for current category, stopping once a matching cat_key is found
+    cat_obj = cur.fetchall()  # list of all words in this category
+    current_cat_name = cat_obj[0][1]
+    # close db connection
+    conn.close()
+
     # WORD ADDING FORM
     # if the form on the page wants to return data
     if request.method == "POST": #and is_logged_in(): # remove comment once login done
@@ -113,7 +124,6 @@ def render_words_page(current_cat):
 
         # data from form that needs to be processed
         definition = request.form["definition"].strip()
-        image_file = request.form["image"]
 
         # variable reassignment
         cat_key = current_cat
@@ -132,17 +142,16 @@ def render_words_page(current_cat):
                 return redirect("/?error=Unknown+definition+adding+error")
             # fetch def_key from table
             try:
-                cur.execute("SELECT * FROM tablename ORDER BY column DESC LIMIT 1;")
+                cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
                 def_key = cur.fetchall()
             except:
                 return redirect("/?error=Unknown+definition+adding+error")
-        # finding img_name
 
         # ending db connection
         conn.commit()
         conn.close()
 
-    return render_template("words.html", logged_in=True, word_list=web_word_list, current_cat=current_cat) # change to logged_in = is_logged_in() once login done
+    return render_template("words.html", logged_in=True, word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name) # change to logged_in = is_logged_in() once login done
 
 
 def is_logged_in():
