@@ -27,7 +27,7 @@
                 <div class="form-label"><label for="cat_key">Category</label></div>
                 <div class="form-element"><select name="cat_key" id="cat_key">
                     {% for category in categories %}
-                        <option value={% category[0][0] %}>{% category[0][1] %}</option>
+                        <option value={{ category[0] }}>{{ category[1] }}</option>
                     {% endfor %}
                 </select></div>
             </div>
