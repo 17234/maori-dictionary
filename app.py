@@ -34,13 +34,13 @@ def render_categories_page():
     # get list of categories from db
     conn = create_conn(DB_NAME)
     cur = conn.cursor()
-    cur.execute("SELECT cat_key, cat_name FROM categories ORDER BY cat_key ASC") # query for list of cats
+    cur.execute("SELECT cat_key, cat_name FROM categories ORDER BY cat_key") # query for list of cats
     cat_list = cur.fetchall() # list of all cats
     conn.close()
 
     # CATEGORY ADDING FORM
     # if the form on the page wants to return data
-    if request.method == "POST": #and is_logged_in(): # remove comment once login done
+    if request.method == "POST":  # and is_logged_in(): # remove comment once login done
         cat_name = request.form["cat_name"].strip().title()
         if len(cat_name) < 3:
             return redirect("/?error=Name+must+be+at+least+3+letters+long")
@@ -50,7 +50,7 @@ def render_categories_page():
             # try to add to categories table
             try:
                 cur.execute("INSERT INTO categories (cat_key, cat_name) VALUES(NULL, ?)", (cat_name,)) # insert cat_name into categories in next available position
-            except:
+            except Exception as e:
                 return redirect("/?error=Unknown+category+error")
 
             conn.commit()
@@ -59,16 +59,15 @@ def render_categories_page():
     return render_template("categories.html", logged_in=True, cat_list=cat_list) # change to logged_in = is_logged_in() once login done
 
 # render the words page
-@app.route("/words/<current_cat>", methods=["GET", "POST"])
+@app.route("/words/<current_cat>", methods=["GET"])
 def render_words_page(current_cat):
     # WORD TABLE
-
     # DB FETCH DICTIONARY
     # initiate db connection
     conn = create_conn(DB_NAME)
     cur = conn.cursor()
     # fetch data
-    cur.execute("SELECT key, mri_word, eng_word, level, cat_key, def_key, img_name FROM dictionary WHERE cat_key=? ORDER BY key ASC", (current_cat,)) # query for dictionary
+    cur.execute("SELECT key, mri_word, eng_word, level, cat_key, def_key, img_name FROM dictionary WHERE cat_key=? ORDER BY key", (current_cat,)) # query for dictionary
     db_word_list = cur.fetchall() # list of all words in this category
     # close db connection
     conn.close()
@@ -108,18 +107,23 @@ def render_words_page(current_cat):
     conn = create_conn(DB_NAME)
     cur = conn.cursor()
     # fetch data
-    cur.execute("SELECT cat_key, cat_name FROM categories WHERE cat_key=? ORDER BY cat_key ASC LIMIT 1", (current_cat,))  # query for current category, stopping once a matching cat_key is found
+    cur.execute("SELECT cat_key, cat_name FROM categories WHERE cat_key=? ORDER BY cat_key LIMIT 1", (current_cat,))  # query for current category, stopping once a matching cat_key is found
     cat_obj = cur.fetchall()  # list of all words in this category
     current_cat_name = cat_obj[0][1]
     # close db connection
     conn.close()
 
+    return render_template("words.html", word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
+
+
+@app.route("/add_word", methods=["GET", "POST"])
+def render_add_word_page():
     # WORD ADDING FORM
     # if the form on the page wants to return data
     if request.method == "POST": #and is_logged_in(): # remove comment once login done
         # text data straight from form
-        mri_word = request.form["mri_word"].strip()
-        eng_word = request.form["eng_word"].strip()
+        mri_word = request.form["mri_word"].strip().lower()
+        eng_word = request.form["eng_word"].strip().lower()
         level = request.form["level"].strip()
 
         # data from form that needs to be processed
@@ -127,7 +131,7 @@ def render_words_page(current_cat):
 
         # variable reassignment
         cat_key = current_cat
-        def_key = 0 # defaults to 0 (No Definition)
+        def_key = 0  # defaults to 0 (No Definition)
 
         # initiating connection to db
         conn = create_conn(DB_NAME)
@@ -138,27 +142,29 @@ def render_words_page(current_cat):
             # add definition to definitions table
             try:
                 cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition, ))
-            except:
+            except Exception as e:
                 return redirect("/?error=Unknown+definition+adding+error")
             # fetch def_key from table
-            try:
-                cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
-                def_key = cur.fetchall()
-            except:
-                return redirect("/?error=Unknown+definition+adding+error")
+            cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
+            def_obj = cur.fetchone()
+            def_key = def_obj[0][0]
+
+        # inserting word to db
+        try:
+            cur.execute("INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name) VALUES (?, ?, ?, ?, ?, NULL)", (mri_word, eng_word, level, cat_key, def_key))
+        except Exception as e:
+            return redirect("?/error=Unknown+word+adding+error")
 
         # ending db connection
         conn.commit()
         conn.close()
 
-    return render_template("words.html", logged_in=True, word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name) # change to logged_in = is_logged_in() once login done
-
+return render_template("add_word.html", logged_in=True) # change to logged_in = is_logged_in() once login done
 
 def is_logged_in():
     if session.get("email") is None or session.get("password") is None:
         return False
     else:
         return True
-
 
 app.run(debug=True)
