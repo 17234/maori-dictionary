@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Māori Dictionary | Home{% endblock %}
+
+{% block heading %}Māori - English Dictionary{% endblock %}
+
+{% block main %}
+    <h3>{{ word_obj[0] }} / {{ word_obj[1] }}</h3>
+    <div id="word_table_div">
+        <table>
+            <tr>
+                <th>Word in Māori</th>
+                <th>Word in English</th>
+                <th>Difficulty level</th>
+                <th>Category</th>
+                <th>Definition</th>
+                <th>Image</th>
+            </tr>
+                <tr>
+                    <td>{{ word_obj[0] }}</td> <!-- mri_word -->
+                    <td>{{ word_obj[1] }}</td> <!-- eng_word -->
+                    <td>{{ word_obj[2] }}</td> <!-- level -->
+                    <td>{{ word_obj[3] }}</td> <!-- category -->
+                    <td>{{ word_obj[4] }}</td> <!-- definition -->
+                    {% if word_obj[5] != None %} <!-- image -->
+                        <td><img src="{{ url_for('static', filename="/images/" + word[5])}}" alt=""></td>
+                </tr>
+        </table>
+    </div>
+    {% if logged_in %}
+        <form class="dataForm" method="post">
+            <div class="form-group">
+                <div class="form-label"><label>Add new word to dictionary</label></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="mri_word">Word in Māori</label></div>
+                <div class="form-element"><input type="text" name="mri_word" id="mri_word" required></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="eng_word">Word in English</label></div>
+                <div class="form-element"><input type="text" name="eng_word" id="eng_word" required></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="level">Level</label></div>
+                <div class="form-element"><input type="number" name="level" id="level" required min=1, max=10></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="cat_key">Category</label></div>
+                <div class="form-element"><select name="cat_key" id="cat_key">
+                    {% for category in categories %}
+                        <option value={{ category[0] }}>{{ category[1] }}</option>
+                    {% endfor %}
+                </select></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="definition">Definition</label></div>
+                <div class="form-element"><input type="text" name="definition" id="definition"></div>
+            </div>
+            <div class="form-group"><div class="form-element"><input type="submit"></div></div>
+        </form>
+    {% endif %}
+{% endblock %}

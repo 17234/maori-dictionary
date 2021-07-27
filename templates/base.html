@@ -6,7 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link href="https://fonts.googleapis.com/css2?family=Comfortaa&family=Suez+One&display=swap" rel="stylesheet">
 	<title>{% block title %}{% endblock %}</title>
-	<meta name="Description" content="Author: D Benseman, Content: A dictionary to convert maori words to english.">
+	<meta name="Description" content="Author: A Williams, Content: A dictionary to convert Māori words to English.">
 </head>
 
 <body>
@@ -24,7 +24,9 @@
 			<ul>
                 <li><a href="\">Home</a></li>
                 <li><a href="\categories">Categories</a></li>
-                <li><a href="\add_word">Add New Word</a></li>
+                {% if logged_in %}
+                    <li><a href="\add_word">Add New Word</a></li>
+                {% endif %}
 			</ul>
 		</nav>
 
