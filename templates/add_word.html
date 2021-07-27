@@ -24,8 +24,12 @@
                 <div class="form-element"><input type="number" name="level" id="level" required min=1, max=10></div>
             </div>
             <div class="form-group">
-                <div class="form-label"><label for="cat_name">Category</label></div>
-                <div class="form-element"><input type="text" name="cat_name" id="cat_name"></div>
+                <div class="form-label"><label for="cat_key">Category</label></div>
+                <div class="form-element"><select name="cat_key" id="cat_key">
+                    {% for category in categories %}
+                        <option value={% category[0][0] %}>{% category[0][1] %}</option>
+                    {% endfor %}
+                </select></div>
             </div>
             <div class="form-group">
                 <div class="form-label"><label for="definition">Definition</label></div>

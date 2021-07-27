@@ -118,6 +118,17 @@ def render_words_page(current_cat):
 
 @app.route("/add_word", methods=["GET", "POST"])
 def render_add_word_page():
+    # list of categories
+    # initiating connection to db
+    conn = create_conn(DB_NAME)
+    cur = conn.cursor()
+
+    cur.execute("SELECT cat_key, cat_name FROM categories")
+    cat_list = cur.fetchall()
+
+    # ending db connection
+    conn.close()
+
     # WORD ADDING FORM
     # if the form on the page wants to return data
     if request.method == "POST": #and is_logged_in(): # remove comment once login done
@@ -125,12 +136,12 @@ def render_add_word_page():
         mri_word = request.form["mri_word"].strip().lower()
         eng_word = request.form["eng_word"].strip().lower()
         level = request.form["level"].strip()
+        cat_key = request.form["cat_key"]
 
         # data from form that needs to be processed
         definition = request.form["definition"].strip()
 
         # variable reassignment
-        cat_key = current_cat
         def_key = 0  # defaults to 0 (No Definition)
 
         # initiating connection to db
@@ -159,7 +170,7 @@ def render_add_word_page():
         conn.commit()
         conn.close()
 
-return render_template("add_word.html", logged_in=True) # change to logged_in = is_logged_in() once login done
+    return render_template("add_word.html", logged_in=True, categories=cat_list) # change to logged_in = is_logged_in() once login done
 
 def is_logged_in():
     if session.get("email") is None or session.get("password") is None:
