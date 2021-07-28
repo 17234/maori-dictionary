@@ -30,7 +30,7 @@ def create_conn(db_file):
 # render the index page
 @app.route("/", methods=["GET"])
 def render_index():
-    return render_template("index.html", logged_in=is_logged_in())
+    return render_template("index.html", logged_in=True)
 
 
 # render the categories page
@@ -97,8 +97,7 @@ def render_word_list_page(current_cat):
     # variables
     web_word_list = []  # the list of words that is sent to the html page
     for db_word in db_word_list:
-        web_word = [db_word[1], db_word[2],
-                    db_word[3]]  # creates list to pass to webpage including Māori word, English word, Level
+        web_word = [db_word[0], db_word[1], db_word[2], db_word[3]]  # creates list to pass to webpage including key, Māori word, English word, Level
 
         # DB FETCH CATEGORY AND DEFINITION
         cat_key = db_word[4]
@@ -135,7 +134,7 @@ def render_word_list_page(current_cat):
     # close db connection
     conn.close()
 
-    return render_template("word_list.html", word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
+    return render_template("word_list.html", logged_in=True, word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
 
 
 @app.route("/add_word", methods=["GET", "POST"])
@@ -224,23 +223,27 @@ def render_word_page(key):
     conn = create_conn(DB_NAME)
     cur = conn.cursor()
 
+    # get list of all categories
+    cur.execute("SELECT cat_key, cat_name FROM categories")
+    cat_list = cur.fetchall()
+
     # get word
     cur.execute("SELECT mri_word, eng_word, level, cat_key, def_key, img_name FROM dictionary WHERE key=?", (key, ))
     word_obj_db = cur.fetchone()
 
-    # get category
-    cur.execute("SELECT cat_name FROM categories WHERE cat_key=?", (word_obj_db[0][3], ))  # word_obj_db[0][3] == cat_key
+    # get category of that word
+    cur.execute("SELECT cat_name FROM categories WHERE cat_key=?", (word_obj_db[3], ))  # word_obj_db[0][3] == cat_key
     cat_obj_db = cur.fetchone()
 
     # get definition
-    cur.execute("SELECT definition FROM definitions WHERE def_key=?", (word_obj_db[0][4], ))  # word_obj_db[0][3] == def_key
+    cur.execute("SELECT definition FROM definitions WHERE def_key=?", (word_obj_db[4], ))  # word_obj_db[0][3] == def_key
     def_obj_db = cur.fetchone()
 
     # ending db connection
     conn.close()
 
     # creating word_obj to send to webpage
-    word_obj = [word_obj_db[0][0], word_obj_db[0][1], word_obj_db[0][2], cat_obj_db[0][0], def_obj_db[0][0], word_obj_db[0][5], word_obj_db[0][4]]
+    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4]]
     # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key (both from word_obj_db)
 
     # WORD ADDING FORM
@@ -292,10 +295,16 @@ def render_word_page(key):
                 def_obj = cur.fetchone()
                 def_key = def_obj[0]
             elif definition == "" and def_key != 0:
-                cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
+                try:
+                    cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
+                except Exception as e:
+                    return redirect("?/error=Definition+delete+error")
                 def_key = 0
             elif definition != "" and def_key != 0:
-                cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
+                try:
+                    cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
+                except Exception as e:
+                    return redirect("?/error=Definition+update+error")
 
             # inserting word to db
             try:
@@ -309,7 +318,7 @@ def render_word_page(key):
         conn.commit()
 
 
-    return render_template("word.html", word_obj = word_obj)
+    return render_template("word.html", logged_in=True, word_obj = word_obj, cat_list=cat_list)
 
 
 def is_logged_in():

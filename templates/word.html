@@ -24,13 +24,14 @@
                     <td>{{ word_obj[4] }}</td> <!-- definition -->
                     {% if word_obj[5] != None %} <!-- image -->
                         <td><img src="{{ url_for('static', filename="/images/" + word[5])}}" alt=""></td>
+                    {% endif %}
                 </tr>
         </table>
     </div>
     {% if logged_in %}
         <form class="dataForm" method="post">
             <div class="form-group">
-                <div class="form-label"><label>Add new word to dictionary</label></div>
+                <div class="form-label"><label>Edit {{ word_obj[0] }}/{{ word_obj[1] }}</label></div>
             </div>
             <div class="form-group">
                 <div class="form-label"><label for="mri_word">Word in Māori</label></div>
@@ -47,7 +48,7 @@
             <div class="form-group">
                 <div class="form-label"><label for="cat_key">Category</label></div>
                 <div class="form-element"><select name="cat_key" id="cat_key">
-                    {% for category in categories %}
+                    {% for category in cat_list %}
                         <option value={{ category[0] }}>{{ category[1] }}</option>
                     {% endfor %}
                 </select></div>

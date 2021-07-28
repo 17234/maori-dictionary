@@ -18,13 +18,13 @@
             </tr>
             {% for word in word_list %}
                 <tr>
-                    <td>{{ word[0] }}</td> <!-- mri_word -->
-                    <td>{{ word[1] }}</td> <!-- eng_word -->
-                    <td>{{ word[2] }}</td> <!-- level -->
-                    <td>{{ word[3] }}</td> <!-- category -->
-                    <td>{{ word[4] }}</td> <!-- definition -->
-                    {% if word[5] != None %}
-                        <td><img src="{{ url_for('static', filename="/images/" + word[5])}}" alt=""></td> <!-- image -->
+                    <td><a href="../word/{{ word[0] }}">{{ word[1] }}</a></td> <!-- mri_word -->
+                    <td><a href="../word/{{ word[0] }}">{{ word[2] }}</a></td> <!-- eng_word -->
+                    <td>{{ word[3] }}</td> <!-- level -->
+                    <td>{{ word[4] }}</td> <!-- category -->
+                    <td>{{ word[5] }}</td> <!-- definition -->
+                    {% if word[6] != None %}
+                        <td><img src="{{ url_for('static', filename="/images/" + word[6])}}" alt=""></td> <!-- image -->
                     {% endif %}
                 </tr>
             {% endfor %}
