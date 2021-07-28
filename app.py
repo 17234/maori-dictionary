@@ -30,7 +30,7 @@ def create_conn(db_file):
 # render the index page
 @app.route("/", methods=["GET"])
 def render_index():
-    return render_template("index.html", logged_in=True)
+    return render_template("index.html", logged_in=is_logged_in())
 
 
 # render the categories page
@@ -46,7 +46,7 @@ def render_categories_page():
 
     # CATEGORY ADDING FORM
     # if the form on the page wants to return data
-    if request.method == "POST":  # and is_logged_in(): # remove comment once login done
+    if request.method == "POST" and is_logged_in():
         cat_name = request.form["cat_name"].strip().title()
 
         # checking if cat_name is a duplicate of an existing category name
@@ -76,7 +76,7 @@ def render_categories_page():
         conn.commit()
         conn.close()
 
-    return render_template("categories.html", logged_in=True, cat_list=cat_list)  # change to logged_in = is_logged_in() once login done
+    return render_template("categories.html", logged_in=is_logged_in(), cat_list=cat_list)
 
 
 # render the words page
@@ -134,7 +134,7 @@ def render_word_list_page(current_cat):
     # close db connection
     conn.close()
 
-    return render_template("word_list.html", logged_in=True, word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
+    return render_template("word_list.html", logged_in=is_logged_in(), word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
 
 
 @app.route("/add_word", methods=["GET", "POST"])
@@ -152,7 +152,7 @@ def render_add_word_page():
 
     # WORD ADDING FORM
     # if the form on the page wants to return data
-    if request.method == "POST":  # and is_logged_in(): # remove comment once login done
+    if request.method == "POST" and is_logged_in():
         # text data straight from form
         mri_word = request.form["mri_word"].strip().lower()
         eng_word = request.form["eng_word"].strip().lower()
@@ -214,7 +214,7 @@ def render_add_word_page():
         conn.commit()
         conn.close()
 
-    return render_template("add_word.html", logged_in=True, cat_list=cat_list, MIN_LEVEL = MIN_LEVEL, MAX_LEVEL = MAX_LEVEL)  # change to logged_in = is_logged_in() once login done
+    return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL = MIN_LEVEL, MAX_LEVEL = MAX_LEVEL)
 
 @app.route("/word/<key>", methods=["GET", "POST"])
 def render_word_page(key):
@@ -246,86 +246,116 @@ def render_word_page(key):
     word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4]]
     # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key (both from word_obj_db)
 
-    # WORD ADDING FORM
+    # WORD EDITING FORM
     # if the form on the page wants to return data
-    if request.method == "POST":  # and is_logged_in(): # remove comment once login done
-        # text data straight from form
-        mri_word = request.form["mri_word"].strip().lower()
-        eng_word = request.form["eng_word"].strip().lower()
-        level = request.form["level"].strip()
-        cat_key = request.form["cat_key"]
+    if request.method == "POST" and is_logged_in():
+        # get definition key from form
         def_key = request.form["def_key"]
 
-        # data from form that needs to be processed
-        definition = request.form["definition"].strip()
+        # check if a delete is wanted
+        try:
+            is_delete = request.form["delete"]
+        except:
+            is_delete = False
 
         # initiating connection to db
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
 
-        # checking if mri_word AND eng_word are duplicates of existing words
-        duplicate_word_list = []
-        is_duplicate = False
-
-        # selecting a key value pair of all māori words that match the input mri_word
-        cur.execute("SELECT key, mri_word FROM dictionary WHERE mri_word=?", (mri_word,))
-        mri_word_list = cur.fetchall()
-
-        # selecting a key value pair of all english words that match the input eng_word
-        cur.execute("SELECT key, eng_word FROM dictionary WHERE eng_word=?", (eng_word,))
-        eng_word_list = cur.fetchall()
-
-        for i in mri_word_list:
-            duplicate_word_list.append(i[0])
-
-        for j in eng_word_list:
-            for k in duplicate_word_list:
-                if j[0] == k:
-                    is_duplicate = True
-
-        if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
-            if definition != "" and def_key == 0:  # if there is a provided definition
-                # add definition to definitions table
+        # if the word is to be deleted
+        if is_delete == "Delete":
+            if is_admin():
+                if def_key != 0:  # if there is an independent definition (ie not No Definition)
+                    try:
+                        cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
+                    except Exception as e:
+                        return redirect("/?error=Definition+delete+error")
                 try:
-                    cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
+                    cur.execute("DELETE FROM dictionary WHERE key=?", (key, ))
                 except Exception as e:
-                    return redirect("/?error=Unknown+definition+adding+error")
-                # fetch def_key from table
-                cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
-                def_obj = cur.fetchone()
-                def_key = def_obj[0]
-            elif definition == "" and def_key != 0:
-                try:
-                    cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
-                except Exception as e:
-                    return redirect("?/error=Definition+delete+error")
-                def_key = 0
-            elif definition != "" and def_key != 0:
-                try:
-                    cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
-                except Exception as e:
-                    return redirect("?/error=Definition+update+error")
+                    return redirect("?/error=Word+delete+error")
+                return redirect("/")
 
-            # inserting word to db
-            try:
-                cur.execute("UPDATE dictionary SET mri_word=?, SET eng_word=?, SET level=?, SET cat_key=?, SET def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
-            except Exception as e:
-                return redirect("?/error=Unknown+word+adding+error")
-        else:
-            return redirect("?/error=Duplicate+or+not+present+word")
+        else:  # if the word is not to be deleted
+            # text data straight from form
+            mri_word = request.form["mri_word"].strip().lower()
+            eng_word = request.form["eng_word"].strip().lower()
+            level = request.form["level"].strip()
+            cat_key = request.form["cat_key"]
+
+            # data from form that needs to be processed
+            definition = request.form["definition"].strip()
+
+            # checking if mri_word AND eng_word are duplicates of existing words
+            duplicate_word_list = []
+            is_duplicate = False
+
+            # selecting a key value pair of all māori words that match the input mri_word
+            cur.execute("SELECT key, mri_word FROM dictionary WHERE mri_word=?", (mri_word,))
+            mri_word_list = cur.fetchall()
+
+            # selecting a key value pair of all english words that match the input eng_word
+            cur.execute("SELECT key, eng_word FROM dictionary WHERE eng_word=?", (eng_word,))
+            eng_word_list = cur.fetchall()
+
+            for i in mri_word_list:
+                duplicate_word_list.append(i[0])
+
+            for j in eng_word_list:
+                for k in duplicate_word_list:
+                    if j[0] == k:
+                        is_duplicate = True
+
+            if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
+                if definition != "No definition" and def_key == 0:  # if there is a provided definition
+                    # add definition to definitions table
+                    try:
+                        cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
+                    except Exception as e:
+                        return redirect("/?error=Unknown+definition+adding+error")
+                    # fetch def_key from table
+                    cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
+                    def_obj = cur.fetchone()
+                    def_key = def_obj[0]
+                elif definition == "No definition" and def_key != 0:
+                    try:
+                        cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
+                    except Exception as e:
+                        return redirect("?/error=Definition+delete+error")
+                    def_key = 0
+                elif definition != "No definition" and def_key != 0:
+                    try:
+                        cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
+                    except Exception as e:
+                        return redirect("?/error=Definition+update+error")
+
+                # inserting word to db
+                try:
+                    cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
+                except Exception as e:
+                    return redirect("?/error=Unknown+word+adding+error")
+            else:
+                return redirect("?/error=Duplicate+or+not+present+word")
 
         # ending db connection
         conn.commit()
+        conn.close()
 
+    return render_template("word.html", logged_in=is_logged_in(), word_obj = word_obj, cat_list=cat_list)
 
-    return render_template("word.html", logged_in=True, word_obj = word_obj, cat_list=cat_list)
+@app.route("/log_in", methods=["GET", "POST"])
+def render_log_in_page():
 
+    return render_template("")
 
 def is_logged_in():
-    if session.get("email") is None or session.get("password") is None:
-        return False
-    else:
+    #if session.get("email") is None or session.get("password") is None:
+        #return False
+    #else:
         return True
+
+def is_admin():
+    return True
 
 
 app.run(debug=True)
