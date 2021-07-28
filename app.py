@@ -10,6 +10,11 @@ app = Flask(__name__)
 bcrypt = Bcrypt(app)
 app.secret_key = "OUH9awc8m98mch4r^&GHN^&Fv5SDF^*TI&YGn76fv675d6f7g8et5v"
 
+MIN_CAT_NAME_LENGTH = 3
+MIN_WORD_LENGTH = 1
+MIN_LEVEL = 1
+MAX_LEVEL = 10
+
 
 # create a connection to the database
 def create_conn(db_file):
@@ -58,7 +63,7 @@ def render_categories_page():
             is_duplicate = True
 
         if not is_duplicate:
-            if len(cat_name) < 3:
+            if len(cat_name) < MIN_CAT_NAME_LENGTH:
                 return redirect("/?error=Name+must+be+at+least+3+letters+long")
             else:
                 # try to add to categories table
@@ -182,7 +187,7 @@ def render_add_word_page():
                 if j[0] == k:
                     is_duplicate = True
 
-        if not is_duplicate:  # if the word is not a duplicate, continue
+        if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
             # making def_key
             def_key = 0  # defaults to 0 (No Definition)
 
@@ -204,13 +209,13 @@ def render_add_word_page():
             except Exception as e:
                 return redirect("?/error=Unknown+word+adding+error")
         else:
-            return redirect("?/error=Duplicate+word")
+            return redirect("?/error=Duplicate+or+not+present+word")
 
         # ending db connection
         conn.commit()
         conn.close()
 
-    return render_template("add_word.html", logged_in=True, categories=cat_list)  # change to logged_in = is_logged_in() once login done
+    return render_template("add_word.html", logged_in=True, cat_list=cat_list, MIN_LEVEL = MIN_LEVEL, MAX_LEVEL = MAX_LEVEL)  # change to logged_in = is_logged_in() once login done
 
 @app.route("/word/<key>", methods=["GET", "POST"])
 def render_word_page(key):
@@ -235,9 +240,73 @@ def render_word_page(key):
     conn.close()
 
     # creating word_obj to send to webpage
-    word_obj = [word_obj_db[0][0], word_obj_db[0][1], word_obj_db[0][2], cat_obj_db[0][0], def_obj_db[0][0], word_obj_db[0][5]]
-    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name (from word_obj_db)
+    word_obj = [word_obj_db[0][0], word_obj_db[0][1], word_obj_db[0][2], cat_obj_db[0][0], def_obj_db[0][0], word_obj_db[0][5], word_obj_db[0][4]]
+    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key (both from word_obj_db)
 
+    # WORD ADDING FORM
+    # if the form on the page wants to return data
+    if request.method == "POST":  # and is_logged_in(): # remove comment once login done
+        # text data straight from form
+        mri_word = request.form["mri_word"].strip().lower()
+        eng_word = request.form["eng_word"].strip().lower()
+        level = request.form["level"].strip()
+        cat_key = request.form["cat_key"]
+        def_key = request.form["def_key"]
+
+        # data from form that needs to be processed
+        definition = request.form["definition"].strip()
+
+        # initiating connection to db
+        conn = create_conn(DB_NAME)
+        cur = conn.cursor()
+
+        # checking if mri_word AND eng_word are duplicates of existing words
+        duplicate_word_list = []
+        is_duplicate = False
+
+        # selecting a key value pair of all māori words that match the input mri_word
+        cur.execute("SELECT key, mri_word FROM dictionary WHERE mri_word=?", (mri_word,))
+        mri_word_list = cur.fetchall()
+
+        # selecting a key value pair of all english words that match the input eng_word
+        cur.execute("SELECT key, eng_word FROM dictionary WHERE eng_word=?", (eng_word,))
+        eng_word_list = cur.fetchall()
+
+        for i in mri_word_list:
+            duplicate_word_list.append(i[0])
+
+        for j in eng_word_list:
+            for k in duplicate_word_list:
+                if j[0] == k:
+                    is_duplicate = True
+
+        if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
+            if definition != "" and def_key == 0:  # if there is a provided definition
+                # add definition to definitions table
+                try:
+                    cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
+                except Exception as e:
+                    return redirect("/?error=Unknown+definition+adding+error")
+                # fetch def_key from table
+                cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
+                def_obj = cur.fetchone()
+                def_key = def_obj[0]
+            elif definition == "" and def_key != 0:
+                cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
+                def_key = 0
+            elif definition != "" and def_key != 0:
+                cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
+
+            # inserting word to db
+            try:
+                cur.execute("UPDATE dictionary SET mri_word=?, SET eng_word=?, SET level=?, SET cat_key=?, SET def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
+            except Exception as e:
+                return redirect("?/error=Unknown+word+adding+error")
+        else:
+            return redirect("?/error=Duplicate+or+not+present+word")
+
+        # ending db connection
+        conn.commit()
 
 
     return render_template("word.html", word_obj = word_obj)
