@@ -8,7 +8,7 @@ DB_NAME = "dict.db"
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
-app.secret_key = "OUH9awc8m98mch4r^&GHN^&Fv5SDF^*TI&YGn76fv675d6f7g8et5v"
+app.secret_key = "1954MCMLIVwasacommonyearstartingonFriday"
 
 MIN_CAT_NAME_LENGTH = 3
 MIN_WORD_LENGTH = 1
@@ -69,7 +69,7 @@ def render_categories_page():
                 # try to add to categories table
                 try:
                     cur.execute("INSERT INTO categories (cat_key, cat_name) VALUES(NULL, ?)", (cat_name,))  # insert cat_name into categories in next available position
-                except Exception as e:
+                except sqlite3.IntegrityError:
                     return redirect("/?error=Unknown+category+error")
 
         # close db connection
@@ -194,7 +194,7 @@ def render_add_word_page():
                 # add definition to definitions table
                 try:
                     cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
-                except Exception as e:
+                except sqlite3.IntegrityError:
                     return redirect("/?error=Unknown+definition+adding+error")
                 # fetch def_key from table
                 cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
@@ -205,7 +205,7 @@ def render_add_word_page():
             try:
                 cur.execute(
                     "INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name) VALUES (?, ?, ?, ?, ?, NULL)", (mri_word, eng_word, level, cat_key, def_key))
-            except Exception as e:
+            except sqlite3.IntegrityError:
                 return redirect("?/error=Unknown+word+adding+error")
         else:
             return redirect("?/error=Duplicate+or+not+present+word")
@@ -214,7 +214,7 @@ def render_add_word_page():
         conn.commit()
         conn.close()
 
-    return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL = MIN_LEVEL, MAX_LEVEL = MAX_LEVEL)
+    return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL=MIN_LEVEL, MAX_LEVEL=MAX_LEVEL)
 
 
 @app.route("/word/<key>", methods=["GET", "POST"])
@@ -256,7 +256,7 @@ def render_word_page(key):
         # check if a delete is wanted
         try:
             is_delete = request.form["delete"]
-        except:
+        except sqlite3.IntegrityError:
             is_delete = False
 
         # initiating connection to db
@@ -269,11 +269,11 @@ def render_word_page(key):
                 if def_key != 0:  # if there is an independent definition (ie not No Definition)
                     try:
                         cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
-                    except Exception as e:
+                    except sqlite3.IntegrityError:
                         return redirect("/?error=Definition+delete+error")
                 try:
                     cur.execute("DELETE FROM dictionary WHERE key=?", (key, ))
-                except Exception as e:
+                except sqlite3.IntegrityError:
                     return redirect("?/error=Word+delete+error")
                 return redirect("/")
             else:
@@ -314,7 +314,7 @@ def render_word_page(key):
                     # add definition to definitions table
                     try:
                         cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
-                    except Exception as e:
+                    except sqlite3.IntegrityError:
                         return redirect("/?error=Unknown+definition+adding+error")
                     # fetch def_key from table
                     cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
@@ -323,19 +323,19 @@ def render_word_page(key):
                 elif definition == "No definition" and def_key != 0:
                     try:
                         cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
-                    except Exception as e:
+                    except sqlite3.IntegrityError:
                         return redirect("?/error=Definition+delete+error")
                     def_key = 0
                 elif definition != "No definition" and def_key != 0:
                     try:
                         cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
-                    except Exception as e:
+                    except sqlite3.IntegrityError:
                         return redirect("?/error=Definition+update+error")
 
                 # inserting word to db
                 try:
                     cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
-                except Exception as e:
+                except sqlite3.IntegrityError:
                     return redirect("?/error=Unknown+word+adding+error")
             else:
                 return redirect("?/error=Duplicate+or+not+present+word")
@@ -344,7 +344,7 @@ def render_word_page(key):
         conn.commit()
         conn.close()
 
-    return render_template("word.html", logged_in=is_logged_in(), word_obj = word_obj, cat_list=cat_list)
+    return render_template("word.html", logged_in=is_logged_in(), word_obj=word_obj, cat_list=cat_list)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -362,9 +362,11 @@ def render_login_page():
         cur.execute("SELECT key, name, email, h_password, is_admin FROM users WHERE email=?", (email, ))
         user_obj = cur.fetchone()
 
+        print(user_obj, password)
+
         # checking credentials
         if user_obj:
-            if bcrypt.check_password_hash(user_obj[2], password):  # checking if the password matches
+            if bcrypt.check_password_hash(user_obj[3], password):  # checking if the password matches
                 session["name"] = user_obj[1]
                 session["email"] = user_obj[2]
                 session["password"] = user_obj[3]
@@ -377,6 +379,7 @@ def render_login_page():
 
     return render_template("login.html", logged_in=is_logged_in())
 
+
 @app.route("/signup", methods=["GET", "POST"])
 def render_signup_page():
     if request.method == "POST":
@@ -384,15 +387,15 @@ def render_signup_page():
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
-        h_password = bcrypt.generate_password_hash(password)
-        password = False  # clearing the password so that only an encrypted value is dealt with
+
+        # hash password
+        h_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
         # initiating connection to db
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
 
         # Duplicate checking
-        duplicate_user_list = []
         is_duplicate = False
 
         # fetching duplicate names
@@ -411,15 +414,23 @@ def render_signup_page():
             try:
                 cur.execute("INSERT INTO users (name, email, h_password, is_admin) VALUES (?, ?, ?, FALSE)", (name, email, h_password))
                 conn.commit()
-            except Exception as e:
+            except sqlite3.IntegrityError:
                 return redirect("?/error=User+adding+database+error")
         else:
             return redirect("?/error=That+name+or+email+is+in+use")
 
         # ending connection to db
         conn.close()
+        return redirect("../login")
 
     return render_template("signup.html", logged_in=is_logged_in())
+
+
+@app.route("/logout", methods=["GET"])
+def logout():
+    session.clear()
+    return redirect("/")
+
 
 def is_logged_in():
     print(session)
@@ -427,6 +438,7 @@ def is_logged_in():
         return False
     else:
         return True
+
 
 def is_admin():
     if session.get("is_admin") is not None:

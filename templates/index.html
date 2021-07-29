@@ -5,4 +5,7 @@
 {% block heading %}Māori - English Dictionary{% endblock %}
 
 {% block main %}
+    {% if logged_in %}
+        <h4>Welcome, {{ session.get("name") }}!</h4>
+    {% endif %}
 {% endblock %}
