@@ -216,6 +216,7 @@ def render_add_word_page():
 
     return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL = MIN_LEVEL, MAX_LEVEL = MAX_LEVEL)
 
+
 @app.route("/word/<key>", methods=["GET", "POST"])
 def render_word_page(key):
     # get word data
@@ -274,6 +275,8 @@ def render_word_page(key):
                     cur.execute("DELETE FROM dictionary WHERE key=?", (key, ))
                 except Exception as e:
                     return redirect("?/error=Word+delete+error")
+                return redirect("/")
+            else:
                 return redirect("/")
 
         else:  # if the word is not to be deleted
@@ -343,10 +346,59 @@ def render_word_page(key):
 
     return render_template("word.html", logged_in=is_logged_in(), word_obj = word_obj, cat_list=cat_list)
 
-@app.route("/log_in", methods=["GET", "POST"])
-def render_log_in_page():
 
-    return render_template("")
+@app.route("/login", methods=["GET", "POST"])
+def render_login_page():
+    # fetch login info from webpage
+    if request.method == "POST":
+        username = request.form["username"]
+        email = request.forn
+
+    return render_template("login.html", logged_in=is_logged_in())
+
+@app.route("/signup", methods=["GET", "POST"])
+def render_signup_page():
+    # fetch signup info from webpage
+    if request.method == "POST":
+        name = request.form["username"]
+        email = request.form["email"]
+        password = request.form["password"]
+        h_password = bcrypt.generate_password_hash(password)
+        password = False  # clearing the password so that only an encrypted value is dealt with
+
+        # initiating connection to db
+        conn = create_conn(DB_NAME)
+        cur = conn.cursor()
+
+        # Duplicate checking
+        duplicate_user_list = []
+        is_duplicate = False
+
+        # fetching duplicate names
+        cur.execute("SELECT key, name FROM users WHERE name=?", (name, ))
+        name_list = cur.fetchall()
+
+        # fetching duplicate emails
+        cur.execute("SELECT key, email FROM users WHERE email=?", (email, ))
+        email_list = cur.fetchall()
+
+        # checking if duplicate
+        if len(name_list) > 0 or len(email_list) > 0:
+            is_duplicate = True
+
+        if not is_duplicate:
+            try:
+                cur.execute("INSERT INTO users (name, email, h_password, is_admin) VALUES (?, ?, ?, FALSE)", (name, email, h_password))
+                conn.commit()
+            except Exception as e:
+                return redirect("?/error=User+adding+database+error")
+        else:
+            return redirect("?/error=That+name+or+email+is+in+use")
+
+        # ending connection to db
+        conn.close()
+
+    return render_template("signup.html", logged_in=is_logged_in())
 
 def is_logged_in():
     #if session.get("email") is None or session.get("password") is None:
