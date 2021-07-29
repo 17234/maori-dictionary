@@ -344,7 +344,7 @@ def render_word_page(key):
         conn.commit()
         conn.close()
 
-    return render_template("word.html", logged_in=is_logged_in(), word_obj=word_obj, cat_list=cat_list)
+    return render_template("word.html", logged_in=is_logged_in(), is_admin=is_admin(), word_obj=word_obj, cat_list=cat_list)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -441,7 +441,7 @@ def is_logged_in():
 
 
 def is_admin():
-    if session.get("is_admin") is not None:
+    if session.get("is_admin") is True:
         return True
     else:
         return False
