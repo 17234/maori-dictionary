@@ -349,18 +349,39 @@ def render_word_page(key):
 
 @app.route("/login", methods=["GET", "POST"])
 def render_login_page():
-    # fetch login info from webpage
     if request.method == "POST":
-        username = request.form["username"]
-        email = request.forn
+        # fetch login info from webpage
+        email = request.form["email"]
+        password = request.form["password"]
+
+        # initiating connection to db
+        conn = create_conn(DB_NAME)
+        cur = conn.cursor()
+
+        # fetching user data
+        cur.execute("SELECT key, name, email, h_password, is_admin FROM users WHERE email=?", (email, ))
+        user_obj = cur.fetchone()
+
+        # checking credentials
+        if user_obj:
+            if bcrypt.check_password_hash(user_obj[2], password):  # checking if the password matches
+                session["name"] = user_obj[1]
+                session["email"] = user_obj[2]
+                session["password"] = user_obj[3]
+                session["is_admin"] = user_obj[4]
+                return redirect("/")
+            else:
+                return redirect("?/error=Incorrect+password")
+        else:
+            return redirect("?/error=Incorrect+email")
 
     return render_template("login.html", logged_in=is_logged_in())
 
 @app.route("/signup", methods=["GET", "POST"])
 def render_signup_page():
-    # fetch signup info from webpage
     if request.method == "POST":
-        name = request.form["username"]
+        # fetch signup info from webpage
+        name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
         h_password = bcrypt.generate_password_hash(password)
@@ -401,13 +422,17 @@ def render_signup_page():
     return render_template("signup.html", logged_in=is_logged_in())
 
 def is_logged_in():
-    #if session.get("email") is None or session.get("password") is None:
-        #return False
-    #else:
+    print(session)
+    if session.get("email") is None or session.get("password") is None:
+        return False
+    else:
         return True
 
 def is_admin():
-    return True
+    if session.get("is_admin") is not None:
+        return True
+    else:
+        return False
 
 
 app.run(debug=True)
