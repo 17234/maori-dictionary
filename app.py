@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect
+from flask import Flask, render_template, request, session, redirect, flash
 import sqlite3
 from sqlite3 import Error
 
@@ -64,13 +64,13 @@ def render_categories_page():
 
         if not is_duplicate:
             if len(cat_name) < MIN_CAT_NAME_LENGTH:
-                return redirect("/?error=Name+must+be+at+least+3+letters+long")
+                flash("Name must be at least 3 letters long")
             else:
                 # try to add to categories table
                 try:
                     cur.execute("INSERT INTO categories (cat_key, cat_name) VALUES(NULL, ?)", (cat_name,))  # insert cat_name into categories in next available position
                 except sqlite3.IntegrityError:
-                    return redirect("/?error=Unknown+category+error")
+                    flash("Unknown category error")
 
         # close db connection
         conn.commit()
@@ -195,7 +195,7 @@ def render_add_word_page():
                 try:
                     cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
                 except sqlite3.IntegrityError:
-                    return redirect("/?error=Unknown+definition+adding+error")
+                    flash("Unknown definition adding error")
                 # fetch def_key from table
                 cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
                 def_obj = cur.fetchone()
@@ -206,9 +206,9 @@ def render_add_word_page():
                 cur.execute(
                     "INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name) VALUES (?, ?, ?, ?, ?, NULL)", (mri_word, eng_word, level, cat_key, def_key))
             except sqlite3.IntegrityError:
-                return redirect("?/error=Unknown+word+adding+error")
+                flash("Unknown word adding error")
         else:
-            return redirect("?/error=Duplicate+or+not+present+word")
+            flash("Duplicate or not present word")
 
         # ending db connection
         conn.commit()
@@ -270,11 +270,11 @@ def render_word_page(key):
                     try:
                         cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
                     except sqlite3.IntegrityError:
-                        return redirect("/?error=Definition+delete+error")
+                        flash("Definition delete error")
                 try:
                     cur.execute("DELETE FROM dictionary WHERE key=?", (key, ))
                 except sqlite3.IntegrityError:
-                    return redirect("?/error=Word+delete+error")
+                    flash("Word delete error")
                 return redirect("/")
             else:
                 return redirect("/")
@@ -315,7 +315,7 @@ def render_word_page(key):
                     try:
                         cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
                     except sqlite3.IntegrityError:
-                        return redirect("/?error=Unknown+definition+adding+error")
+                        flash("Unknown definition adding error")
                     # fetch def_key from table
                     cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
                     def_obj = cur.fetchone()
@@ -324,21 +324,21 @@ def render_word_page(key):
                     try:
                         cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
                     except sqlite3.IntegrityError:
-                        return redirect("?/error=Definition+delete+error")
+                        flash("Definition delete error")
                     def_key = 0
                 elif definition != "No definition" and def_key != 0:
                     try:
                         cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
                     except sqlite3.IntegrityError:
-                        return redirect("?/error=Definition+update+error")
+                        flash("Definition update error")
 
                 # inserting word to db
                 try:
                     cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
                 except sqlite3.IntegrityError:
-                    return redirect("?/error=Unknown+word+adding+error")
+                    flash("Unknown word adding error")
             else:
-                return redirect("?/error=Duplicate+or+not+present+word")
+                flash("Duplicate or not present word")
 
         # ending db connection
         conn.commit()
@@ -373,9 +373,9 @@ def render_login_page():
                 session["is_admin"] = user_obj[4]
                 return redirect("/")
             else:
-                return redirect("?/error=Incorrect+password")
+                flash("Incorrect password")
         else:
-            return redirect("?/error=Incorrect+email")
+            flash("Incorrect email")
 
     return render_template("login.html", logged_in=is_logged_in())
 
@@ -398,26 +398,25 @@ def render_signup_page():
         # Duplicate checking
         is_duplicate = False
 
-        # fetching duplicate names
-        cur.execute("SELECT key, name FROM users WHERE name=?", (name, ))
-        name_list = cur.fetchall()
-
         # fetching duplicate emails
         cur.execute("SELECT key, email FROM users WHERE email=?", (email, ))
         email_list = cur.fetchall()
 
         # checking if duplicate
-        if len(name_list) > 0 or len(email_list) > 0:
+        if len(email_list) > 0:
             is_duplicate = True
 
         if not is_duplicate:
-            try:
-                cur.execute("INSERT INTO users (name, email, h_password, is_admin) VALUES (?, ?, ?, FALSE)", (name, email, h_password))
-                conn.commit()
-            except sqlite3.IntegrityError:
-                return redirect("?/error=User+adding+database+error")
+            if len(password >= 8):
+                try:
+                    cur.execute("INSERT INTO users (name, email, h_password, is_admin) VALUES (?, ?, ?, FALSE)", (name, email, h_password))
+                    conn.commit()
+                except sqlite3.IntegrityError:
+                    flash("User adding database error")
+            else:
+                flash("Password too short")
         else:
-            return redirect("?/error=That+name+or+email+is+in+use")
+            flash("That name or email is in use")
 
         # ending connection to db
         conn.close()
