@@ -4,6 +4,8 @@ from sqlite3 import Error
 
 from flask_bcrypt import Bcrypt
 
+import datetime
+
 DB_NAME = "dict.db"
 
 app = Flask(__name__)
@@ -229,7 +231,7 @@ def render_word_page(key):
     cat_list = cur.fetchall()
 
     # get word
-    cur.execute("SELECT mri_word, eng_word, level, cat_key, def_key, img_name FROM dictionary WHERE key=?", (key, ))
+    cur.execute("SELECT mri_word, eng_word, level, cat_key, def_key, img_name, time_modified, last_user FROM dictionary WHERE key=?", (key, ))
     word_obj_db = cur.fetchone()
 
     # get category of that word
@@ -246,8 +248,8 @@ def render_word_page(key):
 
     # creating word_obj to send to webpage
     print(word_obj_db[4])
-    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4]]
-    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key (both from word_obj_db)
+    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4], word_obj_db[6], word_obj_db[7]]
+    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key, time_modified, last_user (all from word_obj_db)
 
     # WORD EDITING FORM
     # if the form on the page wants to return data
