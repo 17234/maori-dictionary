@@ -8,7 +8,7 @@ DB_NAME = "dict.db"
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
-app.secret_key = "1954MCMLIVwasacommonyearstartingonFriday"
+app.secret_key = "1954MCMLIVWasACommonYearStartingOnFriday"
 
 MIN_CAT_NAME_LENGTH = 3
 MIN_WORD_LENGTH = 1
@@ -261,6 +261,8 @@ def render_word_page(key):
         except Exception:
             is_delete = False
 
+        print(is_delete)
+
         # initiating connection to db
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
@@ -277,6 +279,11 @@ def render_word_page(key):
                     cur.execute("DELETE FROM dictionary WHERE key=?", (key, ))
                 except sqlite3.IntegrityError:
                     flash("Word delete error")
+
+                # ending db connection
+                conn.commit()
+                conn.close()
+
                 return redirect("/")
             else:
                 return redirect("/")
@@ -342,12 +349,17 @@ def render_word_page(key):
                     cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
                 except sqlite3.IntegrityError:
                     flash("Unknown word adding error")
+
+                # ending db connection
+                conn.commit()
+                conn.close()
+
+                return redirect("/")
             else:
                 flash("Duplicate or not present word")
 
-        # ending db connection
-        conn.commit()
-        conn.close()
+    # ending db connection
+    conn.close()
 
     return render_template("word.html", logged_in=is_logged_in(), is_admin=is_admin(), word_obj=word_obj, cat_list=cat_list)
 
