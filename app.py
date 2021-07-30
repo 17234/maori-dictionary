@@ -239,11 +239,13 @@ def render_word_page(key):
     # get definition
     cur.execute("SELECT definition FROM definitions WHERE def_key=?", (word_obj_db[4], ))  # word_obj_db[0][3] == def_key
     def_obj_db = cur.fetchone()
+    print(def_obj_db)
 
     # ending db connection
     conn.close()
 
     # creating word_obj to send to webpage
+    print(word_obj_db[4])
     word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4]]
     # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key (both from word_obj_db)
 
@@ -256,7 +258,7 @@ def render_word_page(key):
         # check if a delete is wanted
         try:
             is_delete = request.form["delete"]
-        except sqlite3.IntegrityError:
+        except Exception:
             is_delete = False
 
         # initiating connection to db
@@ -302,12 +304,15 @@ def render_word_page(key):
             eng_word_list = cur.fetchall()
 
             for i in mri_word_list:
-                duplicate_word_list.append(i[0])
+                i_int = int(i[0])
+                if int(key) != i_int:
+                    duplicate_word_list.append(i_int)
 
             for j in eng_word_list:
-                for k in duplicate_word_list:
-                    if j[0] == k:
-                        is_duplicate = True
+                if int(key) != int(j[0]):
+                    for k in duplicate_word_list:
+                        if j[0] == k:
+                            is_duplicate = True
 
             if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
                 if definition != "No definition" and def_key == 0:  # if there is a provided definition
@@ -317,7 +322,7 @@ def render_word_page(key):
                     except sqlite3.IntegrityError:
                         flash("Unknown definition adding error")
                     # fetch def_key from table
-                    cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1;")
+                    cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1")
                     def_obj = cur.fetchone()
                     def_key = def_obj[0]
                 elif definition == "No definition" and def_key != 0:
@@ -432,7 +437,6 @@ def logout():
 
 
 def is_logged_in():
-    print(session)
     if session.get("email") is None or session.get("password") is None:
         return False
     else:
@@ -440,7 +444,7 @@ def is_logged_in():
 
 
 def is_admin():
-    if session.get("is_admin") is True:
+    if session.get("is_admin") == 1:
         return True
     else:
         return False
