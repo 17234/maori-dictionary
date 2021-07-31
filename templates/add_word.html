@@ -13,11 +13,11 @@
             </div>
             <div class="form-group">
                 <div class="form-label"><label for="mri_word">Word in Māori</label></div>
-                <div class="form-element"><input type="text" name="mri_word" id="mri_word" required></div>
+                <div class="form-element"><input type="text" name="mri_word" id="mri_word" required pattern="[A-Za-z]{{{ MIN_WORD_LENGTH }},30}"></div> <!-- max length of 30 hardcoded because that is the max the db will take -->
             </div>
             <div class="form-group">
                 <div class="form-label"><label for="eng_word">Word in English</label></div>
-                <div class="form-element"><input type="text" name="eng_word" id="eng_word" required></div>
+                <div class="form-element"><input type="text" name="eng_word" id="eng_word" required pattern="[A-Za-z]{{{ MIN_WORD_LENGTH }},30}"></div>
             </div>
             <div class="form-group">
                 <div class="form-label"><label for="level">Level</label></div>

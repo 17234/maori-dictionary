@@ -207,7 +207,7 @@ def render_word_list_page(current_cat):
     # ending db connection
     conn.close()
 
-    return render_template("word_list.html", logged_in=is_logged_in(), is_admin=is_admin(), word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
+    return render_template("word_list.html", logged_in=is_logged_in(), is_admin=is_admin(), word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name, MIN_WORD_LENGTH=MIN_WORD_LENGTH)
 
 
 @app.route("/add_word", methods=["GET", "POST"])
@@ -301,7 +301,7 @@ def render_add_word_page():
         conn.commit()
         conn.close()
 
-    return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL=MIN_LEVEL, MAX_LEVEL=MAX_LEVEL)
+    return render_template("add_word.html", logged_in=is_logged_in(), cat_list=cat_list, MIN_LEVEL=MIN_LEVEL, MAX_LEVEL=MAX_LEVEL, MIN_WORD_LENGTH=MIN_WORD_LENGTH)
 
 
 @app.route("/word/<key>", methods=["GET", "POST"])
