@@ -105,17 +105,21 @@ def render_word_list_page(current_cat):
         # DB FETCH CATEGORY AND DEFINITION
         cat_key = db_word[4]
         def_key = db_word[5]
+
         # initiate db connection
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
+
         # get category from db
         cur.execute("SELECT cat_key, cat_name FROM categories WHERE cat_key=?", (cat_key,))
         cat_obj = cur.fetchall()
         cat_name = cat_obj[0][1]
         web_word.append(cat_name)  # append cat_name to web_word
+
         # get definition from db
         definition = get_definition(def_key)
         web_word.append(definition)  # append definition to web_word
+
         # close db connection
         conn.close()
 
@@ -135,7 +139,75 @@ def render_word_list_page(current_cat):
     # close db connection
     conn.close()
 
-    return render_template("word_list.html", logged_in=is_logged_in(), word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
+    # EDIT CAT NAME
+    if request.method == "POST" and is_logged_in():
+        # check if a delete is wanted
+        try:
+            is_delete = request.form["delete"]
+        except Exception:
+            is_delete = False
+
+        # initiating connection to db
+        conn = create_conn(DB_NAME)
+        cur = conn.cursor()
+
+        # get cat_key
+        cur.execute("SELECT cat_key FROM categories WHERE cat_name=?", (current_cat_name, ))
+        cat_key = cur.fetchone()[0]
+
+        # if the cat is to be deleted
+        if is_delete == "Delete":
+            if is_admin():
+                try:
+                    cur.execute("DELETE FROM dictionary WHERE cat_key=?", (cat_key, ))
+                except sqlite3.IntegrityError:
+                    flash("Word delete error")
+                try:
+                    cur.execute("DELETE FROM categories WHERE cat_key=?", (cat_key, ))
+                except sqlite3.IntegrityError:
+                    flash("Category delete error")
+
+                # ending db connection
+                conn.commit()
+                conn.close()
+
+                return redirect("/")
+            else:
+                return redirect("/")
+
+        else:  # if the cat is not to be deleted
+            # text data straight from form
+            cat_name = request.form["cat_name"].strip().title()
+
+            # duplicate check
+            is_duplicate = False
+
+            cur.execute("SELECT cat_key FROM categories WHERE cat_name=?", (cat_name, ))
+            duplicate_cat_list = cur.fetchall()
+
+            if len(duplicate_cat_list) > 0:
+                is_duplicate = True
+
+            # INSERT DATA
+            if not is_duplicate and len(cat_name) >= MIN_WORD_LENGTH:
+                # inserting cat to db
+                try:
+                    cur.execute("UPDATE categories SET cat_name=? WHERE cat_key=?", (cat_name, cat_key))
+                except sqlite3.IntegrityError:
+                    flash("Unknown word adding error")
+
+                # ending db connection
+                conn.commit()
+                conn.close()
+
+                return redirect("/")
+            else:
+                flash("Duplicate or not present word")
+
+    # ending db connection
+    conn.close()
+
+    return render_template("word_list.html", logged_in=is_logged_in(), is_admin=is_admin(), word_list=web_word_list, current_cat=current_cat, current_cat_name=current_cat_name)
 
 
 @app.route("/add_word", methods=["GET", "POST"])

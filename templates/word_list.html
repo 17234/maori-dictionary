@@ -16,18 +16,35 @@
                 <th>Definition</th>
                 <th>Image</th>
             </tr>
-            {% for word in word_list %}
+            {% for word_obj in word_list %}
                 <tr>
-                    <td><a href="../word/{{ word[0] }}">{{ word[1] }}</a></td> <!-- mri_word -->
-                    <td><a href="../word/{{ word[0] }}">{{ word[2] }}</a></td> <!-- eng_word -->
-                    <td>{{ word[3] }}</td> <!-- level -->
-                    <td>{{ word[4] }}</td> <!-- category -->
-                    <td>{{ word[5] }}</td> <!-- definition -->
-                    {% if word[6] != None %}
-                        <td><img src="{{ url_for('static', filename="/images/" + word[6])}}" alt=""></td> <!-- image -->
+                    <td><a href="../word/{{ word_obj[0] }}">{{ word_obj[1] }}</a></td> <!-- mri_word_obj -->
+                    <td><a href="../word/{{ word_obj[0] }}">{{ word_obj[2] }}</a></td> <!-- eng_word_obj -->
+                    <td>{{ word_obj[3] }}</td> <!-- level -->
+                    <td>{{ word_obj[4] }}</td> <!-- category -->
+                    <td>{{ word_obj[5] }}</td> <!-- definition -->
+                    {% if word_obj[6] != None %}
+                        <td><img src="{{ url_for('static', filename="/images/" + word_obj[6])}}" alt=""></td> <!-- image -->
                     {% endif %}
                 </tr>
             {% endfor %}
         </table>
     </div>
+
+    {% if logged_in and is_admin%}
+        <form class="dataForm" method="post">
+            <div class="form-group">
+                <div class="form-label"><label>Rename {{ current_cat_name }}</label></div>
+            </div>
+            <div class="form-group">
+                <div class="form-label"><label for="cat_name">Category Name</label></div>
+                <div class="form-element"><input type="text" name="cat_name" id="cat_name" required value="{{ current_cat_name }}"></div>
+            </div>
+            <div class="form-group"><div class="form-element"><input type="submit"></div></div>
+            <div class="form-group">
+                <div class="form-label"><label for="delete">Delete this category</label></div>
+                <div class="form-element"><input type="submit" id="delete" name="delete" value="Delete" onclick="return window.confirm('Are you sure you want to delete this category?\nThis will delete all words in this category.\nThis action cannot be reversed.')"></div>
+            </div>
+        </form>
+    {% endif %}
 {% endblock %}
