@@ -83,7 +83,7 @@ def render_categories_page():
 
 
 # render the words page
-@app.route("/word_list/<current_cat>", methods=["GET"])
+@app.route("/word_list/<current_cat>", methods=["GET", "POST"])
 def render_word_list_page(current_cat):
     # WORD TABLE
     # DB FETCH DICTIONARY
@@ -194,7 +194,7 @@ def render_word_list_page(current_cat):
                 try:
                     cur.execute("UPDATE categories SET cat_name=? WHERE cat_key=?", (cat_name, cat_key))
                 except sqlite3.IntegrityError:
-                    flash("Unknown word adding error")
+                    flash("Unknown category update error")
 
                 # ending db connection
                 conn.commit()
@@ -202,7 +202,7 @@ def render_word_list_page(current_cat):
 
                 return redirect("/")
             else:
-                flash("Duplicate or not present word")
+                flash("Duplicate or not present category")
 
     # ending db connection
     conn.close()
@@ -290,10 +290,10 @@ def render_add_word_page():
 
             # inserting word to db
             try:
-                cur.execute(
-                    "INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name, time_modified, last_user) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)", (mri_word, eng_word, level, cat_key, def_key, time_modified, last_user))
+                cur.execute("INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name, time_modified, last_user) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)", (mri_word, eng_word, level, cat_key, def_key, time_modified, last_user))
             except sqlite3.IntegrityError:
                 flash("Unknown word adding error")
+            return redirect("/categories")
         else:
             flash("Duplicate or not present word")
 
