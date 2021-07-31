@@ -163,13 +163,17 @@ def render_add_word_page():
         # data from form that needs to be processed
         definition = request.form["definition"].strip()
 
-        # time_modified and last_user
-        time_modified = time.time()
-        last_user = session.get("name")
+        # time_modified
+        time_modified = int(time.time())
+        print(time_modified)
 
         # initiating connection to db
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
+
+        # user key
+        cur.execute("SELECT key FROM users WHERE email=?", (session.get("email"), ))
+        last_user = cur.fetchone()[0]
 
         # DUPLICATE CHECKING
         # checking if mri_word AND eng_word are duplicates of existing words
@@ -248,22 +252,21 @@ def render_word_page(key):
     cat_obj_db = cur.fetchone()
 
     # get definition
-    get_definition(word_obj_db[4])
+    definition = get_definition(word_obj_db[4])
 
     # get last_user name
     cur.execute("SELECT name FROM users WHERE key=?", (word_obj_db[7], ))
-    user_obj_db = cur.fetchone()
+    last_user = cur.fetchone()[0]
 
     # ending db connection
     conn.close()
 
     # calculate edit date
     edit_date = date.fromtimestamp(word_obj_db[6])
-    print(edit_date)
 
     # creating word_obj to send to webpage
-    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4], edit_date, user_obj_db[0]]
-    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition; img_name, def_key, (both from word_obj_db); edit_date; last_user (from user_obj_db)
+    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], definition, word_obj_db[5], word_obj_db[4], edit_date, last_user]
+    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition; img_name, def_key, (both from word_obj_db); edit_date; last_user
 
     # WORD EDITING FORM
     # if the form on the page wants to return data
@@ -276,8 +279,6 @@ def render_word_page(key):
             is_delete = request.form["delete"]
         except Exception:
             is_delete = False
-
-        print(is_delete)
 
         # initiating connection to db
         conn = create_conn(DB_NAME)
@@ -313,6 +314,15 @@ def render_word_page(key):
 
             # data from form that needs to be processed
             definition = request.form["definition"].strip()
+
+            # get time of edit and user
+            # time_modified
+            time_modified = time.time()
+            print(time_modified)
+
+            # user key
+            cur.execute("SELECT key FROM users WHERE email=?", (session.get("email"),))
+            last_user = cur.fetchone()[0]
 
             # checking if mri_word AND eng_word are duplicates of existing words
             duplicate_word_list = []
@@ -368,7 +378,7 @@ def render_word_page(key):
 
                 # inserting word to db
                 try:
-                    cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, key))
+                    cur.execute("UPDATE dictionary SET mri_word=?, eng_word=?, level=?, cat_key=?, def_key=?, time_modified=?, last_user=? WHERE key=?", (mri_word, eng_word, level, cat_key, def_key, time_modified, last_user, key))
                 except sqlite3.IntegrityError:
                     flash("Unknown word adding error")
 
@@ -485,7 +495,6 @@ def is_admin():
 
 
 # weird workaround of something (not my code as far as I can tell) deleting SQLite db entries with a key of 0, ie the definition "No Definition"
-# I would replace the seperate db with something else if I had more time, but I don't
 def get_definition(def_key):
     # variable
     definition = ""
@@ -505,5 +514,6 @@ def get_definition(def_key):
         definition = definition_obj[0]
 
     return definition
+
 
 app.run(debug=True)
