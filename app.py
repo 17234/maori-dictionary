@@ -4,7 +4,8 @@ from sqlite3 import Error
 
 from flask_bcrypt import Bcrypt
 
-import datetime
+from datetime import date
+import time
 
 DB_NAME = "dict.db"
 
@@ -113,9 +114,7 @@ def render_word_list_page(current_cat):
         cat_name = cat_obj[0][1]
         web_word.append(cat_name)  # append cat_name to web_word
         # get definition from db
-        cur.execute("SELECT def_key, definition FROM definitions WHERE def_key=?", (def_key,))
-        def_obj = cur.fetchall()
-        definition = def_obj[0][1]
+        definition = get_definition(def_key)
         web_word.append(definition)  # append definition to web_word
         # close db connection
         conn.close()
@@ -164,10 +163,15 @@ def render_add_word_page():
         # data from form that needs to be processed
         definition = request.form["definition"].strip()
 
+        # time_modified and last_user
+        time_modified = time.time()
+        last_user = session.get("name")
+
         # initiating connection to db
         conn = create_conn(DB_NAME)
         cur = conn.cursor()
 
+        # DUPLICATE CHECKING
         # checking if mri_word AND eng_word are duplicates of existing words
         duplicate_word_list = []
         is_duplicate = False
@@ -188,11 +192,16 @@ def render_add_word_page():
                 if j[0] == k:
                     is_duplicate = True
 
+        # checking if there is a definition
+        is_definition = True
+        if definition == "" or definition == "No Definition":
+            is_definition = False
+
         if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
             # making def_key
             def_key = 0  # defaults to 0 (No Definition)
 
-            if definition != "":  # if there is a provided definition
+            if is_definition:  # if there is a provided definition
                 # add definition to definitions table
                 try:
                     cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
@@ -206,7 +215,7 @@ def render_add_word_page():
             # inserting word to db
             try:
                 cur.execute(
-                    "INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name) VALUES (?, ?, ?, ?, ?, NULL)", (mri_word, eng_word, level, cat_key, def_key))
+                    "INSERT INTO dictionary (mri_word, eng_word, level, cat_key, def_key, img_name, time_modified, last_user) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)", (mri_word, eng_word, level, cat_key, def_key, time_modified, last_user))
             except sqlite3.IntegrityError:
                 flash("Unknown word adding error")
         else:
@@ -239,17 +248,22 @@ def render_word_page(key):
     cat_obj_db = cur.fetchone()
 
     # get definition
-    cur.execute("SELECT definition FROM definitions WHERE def_key=?", (word_obj_db[4], ))  # word_obj_db[0][3] == def_key
-    def_obj_db = cur.fetchone()
-    print(def_obj_db)
+    get_definition(word_obj_db[4])
+
+    # get last_user name
+    cur.execute("SELECT name FROM users WHERE key=?", (word_obj_db[7], ))
+    user_obj_db = cur.fetchone()
 
     # ending db connection
     conn.close()
 
+    # calculate edit date
+    edit_date = date.fromtimestamp(word_obj_db[6])
+    print(edit_date)
+
     # creating word_obj to send to webpage
-    print(word_obj_db[4])
-    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4], word_obj_db[6], word_obj_db[7]]
-    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition (from def_obj_db); img_name, def_key, time_modified, last_user (all from word_obj_db)
+    word_obj = [word_obj_db[0], word_obj_db[1], word_obj_db[2], cat_obj_db[0], def_obj_db[0], word_obj_db[5], word_obj_db[4], edit_date, user_obj_db[0]]
+    # in order: mri_word, eng_word, level, (all from word_obj_db); cat_name (from cat_obj_db); definition; img_name, def_key, (both from word_obj_db); edit_date; last_user (from user_obj_db)
 
     # WORD EDITING FORM
     # if the form on the page wants to return data
@@ -323,8 +337,14 @@ def render_word_page(key):
                         if j[0] == k:
                             is_duplicate = True
 
+            # checking if there is a definition
+            is_definition = True
+            if definition == "" or definition == "No Definition":
+                is_definition = False
+
+            # INSERT DATA
             if not is_duplicate and len(mri_word) >= MIN_WORD_LENGTH and len(eng_word) >= MIN_WORD_LENGTH:  # if the word is not a duplicate, continue
-                if definition != "No definition" and def_key == 0:  # if there is a provided definition
+                if is_definition and def_key == 0:  # if there is a provided definition, and no existing one
                     # add definition to definitions table
                     try:
                         cur.execute("INSERT INTO definitions (def_key, definition) VALUES (NULL, ?)", (definition,))
@@ -334,13 +354,13 @@ def render_word_page(key):
                     cur.execute("SELECT def_key, definition FROM definitions ORDER BY def_key DESC LIMIT 1")
                     def_obj = cur.fetchone()
                     def_key = def_obj[0]
-                elif definition == "No definition" and def_key != 0:
+                elif not is_definition and def_key != 0:  # if there is no provided definition, and an existing one
                     try:
                         cur.execute("DELETE FROM definitions WHERE def_key=?", (def_key, ))
                     except sqlite3.IntegrityError:
                         flash("Definition delete error")
                     def_key = 0
-                elif definition != "No definition" and def_key != 0:
+                elif is_definition and def_key != 0:  # if there is a provided definition, and an existing one
                     try:
                         cur.execute("UPDATE definitions SET definition=? WHERE def_key=?", (definition, def_key))
                     except sqlite3.IntegrityError:
@@ -463,5 +483,27 @@ def is_admin():
     else:
         return False
 
+
+# weird workaround of something (not my code as far as I can tell) deleting SQLite db entries with a key of 0, ie the definition "No Definition"
+# I would replace the seperate db with something else if I had more time, but I don't
+def get_definition(def_key):
+    # variable
+    definition = ""
+
+    # initiate connection with db
+    conn = create_conn(DB_NAME)
+    cur = conn.cursor()
+
+    # get definition
+    cur.execute("SELECT definition FROM definitions WHERE def_key=?", (def_key, ))  # word_obj_db[0][3] == def_key
+    definition_obj = cur.fetchone()
+
+    # check if the bugger of a db is broken
+    if definition_obj is None:
+        definition = "No Definition"
+    else:
+        definition = definition_obj[0]
+
+    return definition
 
 app.run(debug=True)
